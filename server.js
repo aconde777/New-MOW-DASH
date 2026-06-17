@@ -38,12 +38,13 @@ app.get('/api/session', requireAuth, (req, res) => {
 app.use('/api', apiRouter);
 
 // ---------- Static frontend ----------
-app.use(express.static(path.join(__dirname, 'public')));
+app.get('/style.css', (req, res) => res.sendFile(path.join(__dirname, 'style.css')));
+app.get('/app.js', (req, res) => res.sendFile(path.join(__dirname, 'app.js')));
 
 // Express 5 catch-all syntax: '*' must be a named wildcard or regex, not a bare string.
 app.get(/.*/, (req, res) => {
   if (req.path.startsWith('/api')) return res.status(404).json({ error: 'Not found' });
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+;res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 // ---------- Scheduled EOD email ----------
