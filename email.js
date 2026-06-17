@@ -21,7 +21,7 @@ function buildEodSummaryHtml(dateStr) {
       (c) =>
         `<tr><td style="padding:4px 10px;">${repName(c.repId)}</td><td style="padding:4px 10px;">${productName(
           c.productId
-        )}</td><td style="padding:4px 10px;">$${Number(c.amount || 0).toLocaleString()}</td></tr>`
+        )}</td><td style="padding:4px 10px;">${c.leadSource || '—'}</td><td style="padding:4px 10px;">$${Number(c.amount || 0).toLocaleString()}</td></tr>`
     )
     .join('');
 
@@ -49,8 +49,8 @@ function buildEodSummaryHtml(dateStr) {
     </div>
     <h3>Closes</h3>
     <table style="width:100%; border-collapse:collapse;">
-      <tr style="text-align:left; border-bottom:1px solid #ddd;"><th style="padding:4px 10px;">Rep</th><th style="padding:4px 10px;">Program</th><th style="padding:4px 10px;">Amount</th></tr>
-      ${closesRows || '<tr><td style="padding:8px 10px; color:#888;" colspan="3">No closes logged today.</td></tr>'}
+      <tr style="text-align:left; border-bottom:1px solid #ddd;"><th style="padding:4px 10px;">Rep</th><th style="padding:4px 10px;">Program</th><th style="padding:4px 10px;">Lead Source</th><th style="padding:4px 10px;">Amount</th></tr>
+      ${closesRows || '<tr><td style="padding:8px 10px; color:#888;" colspan="4">No closes logged today.</td></tr>'}
     </table>
     <h3>Setter Activity</h3>
     <table style="width:100%; border-collapse:collapse;">
