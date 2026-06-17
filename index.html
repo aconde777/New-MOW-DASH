@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Man of War — Sales Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+
+<!-- ===================== LOGIN SCREEN ===================== -->
+<div id="login-screen" class="login-screen">
+  <div class="login-card">
+    <div class="login-mark">MOW</div>
+    <h1>Man of War</h1>
+    <p class="login-sub">Sales Dashboard</p>
+    <form id="login-form">
+      <label for="password-input">Dashboard password</label>
+      <input type="password" id="password-input" autocomplete="current-password" required />
+      <button type="submit">Sign in</button>
+      <p id="login-error" class="error-text"></p>
+    </form>
+  </div>
+</div>
+
+<!-- ===================== APP SHELL ===================== -->
+<div id="app-shell" class="app-shell hidden">
+
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-mark">MOW</div>
+      <div>
+        <div class="brand-title">MAN OF WAR</div>
+        <div class="brand-sub">Sales Dashboard</div>
+      </div>
+    </div>
+    <nav class="nav">
+      <button class="nav-link active" data-tab="sales">Sales</button>
+      <button class="nav-link" data-tab="setters">Setters</button>
+      <button class="nav-link" data-tab="calendar">Calendar</button>
+      <button class="nav-link" data-tab="targets">Targets</button>
+      <button class="nav-link" data-tab="team">Team</button>
+    </nav>
+    <button id="logout-btn" class="logout-btn">Sign out</button>
+  </aside>
+
+  <div class="main-col">
+    <!-- Today strip, always visible -->
+    <header class="today-strip" id="today-strip">
+      <div class="today-stat"><span class="today-num" id="today-closes">—</span><span class="today-label">Closes today</span></div>
+      <div class="today-stat"><span class="today-num" id="today-revenue">—</span><span class="today-label">Revenue today</span></div>
+      <div class="today-stat"><span class="today-num" id="today-calls">—</span><span class="today-label">Calls today</span></div>
+      <div class="today-stat"><span class="today-num" id="today-appts">—</span><span class="today-label">Appts booked</span></div>
+      <div class="today-stat"><span class="today-num" id="today-shows">—</span><span class="today-label">Shows</span></div>
+    </header>
+
+    <main class="content">
+
+      <!-- ===================== SALES TAB ===================== -->
+      <section id="tab-sales" class="tab-panel">
+        <div class="panel-grid">
+
+          <div class="card">
+            <h2>Log a close</h2>
+            <form id="close-form" class="entry-form">
+              <label>Date<input type="date" name="date" required /></label>
+              <label>Rep<select name="repId" required></select></label>
+              <label>Program<select name="productId"></select></label>
+              <label>Amount ($)<input type="number" name="amount" min="0" step="0.01" required /></label>
+              <label>Setter (if applicable)<select name="setterId"><option value="">—</option></select></label>
+              <label class="full">Notes<input type="text" name="notes" placeholder="Optional" /></label>
+              <button type="submit" class="primary-btn">Log close</button>
+            </form>
+          </div>
+
+          <div class="card">
+            <div class="card-head">
+              <h2>Closer leaderboard</h2>
+              <div class="period-toggle" data-target="closer-leaderboard">
+                <button data-period="today">Today</button>
+                <button data-period="week" class="active">Week</button>
+                <button data-period="month">Month</button>
+                <button data-period="all">All</button>
+              </div>
+            </div>
+            <div id="closer-leaderboard" class="leaderboard"></div>
+          </div>
+
+          <div class="card wide">
+            <h2>Revenue — last 14 days</h2>
+            <div id="trend-chart"></div>
+          </div>
+
+          <div class="card wide">
+            <div class="card-head">
+              <h2>Recent closes</h2>
+            </div>
+            <div id="recent-closes" class="data-table"></div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ===================== SETTERS TAB ===================== -->
+      <section id="tab-setters" class="tab-panel hidden">
+        <div class="panel-grid">
+
+          <div class="card">
+            <h2>Log setter activity</h2>
+            <form id="setter-form" class="entry-form">
+              <label>Date<input type="date" name="date" required /></label>
+              <label>Setter<select name="setterId" required></select></label>
+              <label>Calls made<input type="number" name="callsMade" min="0" step="1" value="0" /></label>
+              <label>Appointments booked<input type="number" name="appointmentsBooked" min="0" step="1" value="0" /></label>
+              <label>Show ups<input type="number" name="showUps" min="0" step="1" value="0" /></label>
+              <label class="full">Notes<input type="text" name="notes" placeholder="Optional" /></label>
+              <button type="submit" class="primary-btn">Log activity</button>
+            </form>
+          </div>
+
+          <div class="card wide">
+            <div class="card-head">
+              <h2>Setter leaderboard</h2>
+              <div class="period-toggle" data-target="setter-leaderboard">
+                <button data-period="today">Today</button>
+                <button data-period="week" class="active">Week</button>
+                <button data-period="month">Month</button>
+                <button data-period="all">All</button>
+              </div>
+            </div>
+            <div id="setter-leaderboard" class="leaderboard setter-leaderboard"></div>
+          </div>
+
+          <div class="card wide">
+            <h2>Recent setter activity</h2>
+            <div id="recent-setter-logs" class="data-table"></div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ===================== CALENDAR TAB ===================== -->
+      <section id="tab-calendar" class="tab-panel hidden">
+        <div class="card">
+          <div class="card-head">
+            <h2 id="calendar-title">Calendar</h2>
+            <div class="calendar-controls">
+              <div class="period-toggle" id="calendar-view-toggle">
+                <button data-view="month" class="active">Month</button>
+                <button data-view="week">Week</button>
+              </div>
+              <button id="cal-prev" class="nav-arrow">‹</button>
+              <button id="cal-today" class="nav-arrow text">Today</button>
+              <button id="cal-next" class="nav-arrow">›</button>
+            </div>
+          </div>
+          <div id="calendar-month-view"></div>
+          <div id="calendar-week-view" class="hidden"></div>
+        </div>
+      </section>
+
+      <!-- ===================== TARGETS TAB ===================== -->
+      <section id="tab-targets" class="tab-panel hidden">
+        <div class="panel-grid">
+          <div class="card">
+            <h2>Set a new target</h2>
+            <form id="target-form" class="entry-form">
+              <label class="full">Label<input type="text" name="label" placeholder="e.g. Weekly revenue goal" required /></label>
+              <label>Scope
+                <select name="scope">
+                  <option value="team">Team</option>
+                  <option value="closers">Closers</option>
+                  <option value="setters">Setters</option>
+                </select>
+              </label>
+              <label>Metric
+                <select name="metric">
+                  <option value="revenue">Revenue</option>
+                  <option value="closes">Closes</option>
+                  <option value="calls">Calls</option>
+                  <option value="appointments">Appointments</option>
+                  <option value="shows">Shows</option>
+                </select>
+              </label>
+              <label>Period
+                <select name="period">
+                  <option value="week">This week</option>
+                  <option value="month">This month</option>
+                </select>
+              </label>
+              <label>Target value<input type="number" name="value" min="0" step="1" required /></label>
+              <label>Program (optional)<select name="productId"><option value="">All programs</option></select></label>
+              <button type="submit" class="primary-btn">Set target</button>
+            </form>
+          </div>
+          <div class="card wide">
+            <h2>Active targets</h2>
+            <div id="targets-list" class="targets-list"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================== TEAM TAB ===================== -->
+      <section id="tab-team" class="tab-panel hidden">
+        <div class="panel-grid">
+
+          <div class="card">
+            <h2>Add a team member</h2>
+            <form id="rep-form" class="entry-form">
+              <label>Name<input type="text" name="name" required /></label>
+              <label>Role
+                <select name="role">
+                  <option value="closer">Closer</option>
+                  <option value="setter">Setter</option>
+                </select>
+              </label>
+              <button type="submit" class="primary-btn">Add</button>
+            </form>
+          </div>
+
+          <div class="card">
+            <h2>Add a program</h2>
+            <form id="product-form" class="entry-form">
+              <label>Program name<input type="text" name="name" required /></label>
+              <button type="submit" class="primary-btn">Add</button>
+            </form>
+          </div>
+
+          <div class="card wide">
+            <h2>Team roster</h2>
+            <div id="roster-list" class="data-table"></div>
+          </div>
+
+          <div class="card wide">
+            <h2>Programs</h2>
+            <div id="products-list" class="data-table"></div>
+          </div>
+
+          <div class="card wide">
+            <h2>End-of-day email</h2>
+            <form id="eod-form" class="entry-form">
+              <label class="checkbox-row"><input type="checkbox" name="enabled" /> Send automatically every day</label>
+              <label>Send time<input type="time" name="time" value="20:00" /></label>
+              <label>Timezone
+                <select name="timezone">
+                  <option value="America/New_York">Eastern (America/New_York)</option>
+                  <option value="America/Chicago">Central (America/Chicago)</option>
+                  <option value="America/Denver">Mountain (America/Denver)</option>
+                  <option value="America/Los_Angeles">Pacific (America/Los_Angeles)</option>
+                </select>
+              </label>
+              <label class="full">Recipient email<input type="email" name="recipientEmail" placeholder="you@example.com" /></label>
+              <div class="form-actions">
+                <button type="submit" class="primary-btn">Save settings</button>
+                <button type="button" id="send-eod-now" class="secondary-btn">Send test now</button>
+              </div>
+              <p id="eod-status" class="hint-text"></p>
+            </form>
+          </div>
+
+        </div>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<!-- ===================== DAY DETAIL MODAL ===================== -->
+<div id="day-modal" class="modal-backdrop hidden">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="day-modal-title">Day detail</h3>
+      <button id="day-modal-close" class="modal-close">×</button>
+    </div>
+    <div id="day-modal-body"></div>
+  </div>
+</div>
+
+<script src="/js/app.js"></script>
+</body>
+</html>
