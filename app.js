@@ -2,6 +2,7 @@
 let state = {
   reps: [],
   products: [],
+  leadSources: [],
   closerPeriod: 'week',
   setterPeriod: 'week',
   calendarView: 'month',
@@ -96,15 +97,17 @@ $$('.nav-link').forEach((btn) => {
     $('#tab-' + tab).classList.remove('hidden');
     if (tab === 'calendar') renderCalendar();
     if (tab === 'targets') renderTargets();
-    if (tab === 'team') { renderRoster(); renderProductsList(); }
+    if (tab === 'team') { renderRoster(); renderProductsList(); renderLeadSourcesList(); }
+    if (tab === 'reports') setReportDefaults();
   });
 });
 
 // ===================== Init =====================
 async function initApp() {
-  const [reps, products] = await Promise.all([api('/reps'), api('/products')]);
+  const [reps, products, leadSources] = await Promise.all([api('/reps'), api('/products'), api('/lead-sources')]);
   state.reps = reps;
   state.products = products;
+  state.leadSources = leadSources;
   populateSelects();
   setDefaultDates();
   await refreshTodayStrip();
@@ -132,6 +135,10 @@ function populateSelects() {
   const productSelect = $('#close-form [name="productId"]');
   productSelect.innerHTML = '<option value="">— No program selected</option>' +
     state.products.map((p) => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('');
+
+  const lsSelect = $('#close-form [name="leadSource"]');
+  lsSelect.innerHTML = '<option value="">— Unknown</option>' +
+    state.leadSources.map((ls) => `<option value="${escapeHtml(ls.name)}">${escapeHtml(ls.name)}</option>`).join('');
 
   const targetProductSelect = $('#target-form [name="productId"]');
   targetProductSelect.innerHTML = '<option value="">All programs</option>' +
@@ -175,6 +182,7 @@ $('#close-form').addEventListener('submit', async (e) => {
     amount: Number(fd.get('amount')),
     setterId: fd.get('setterId') || null,
     notes: fd.get('notes') || '',
+    leadSource: fd.get('leadSource') || null,
   };
   await api('/closes', { method: 'POST', body: JSON.stringify(payload) });
   e.target.reset();
@@ -208,7 +216,7 @@ async function renderCloserLeaderboard() {
       (r) => `
     <div class="lb-row ${r.rank === 1 ? 'rank-1' : ''}">
       <span class="lb-rank">#${r.rank}</span>
-      <span class="lb-name">${escapeHtml(r.name)}</span>
+      <span class="lb-name">${escapeHtml(r.name)}${r.title ? `<span class="lb-title">${escapeHtml(r.title)}</span>` : ''}</span>
       <span class="lb-stats">
         <span>${fmtMoney(r.revenue)}<span class="sub">Revenue</span></span>
         <span>${r.closes}<span class="sub">Closes</span></span>
@@ -313,7 +321,8 @@ function attachRowDeletes(container) {
 }
 
 async function renderTrendChart() {
-  const { days } = await api('/trend?days=14');
+  const dayOfMonth = new Date().getDate();
+  const { days } = await api(`/trend?days=${dayOfMonth}`);
   const el = $('#trend-chart');
   const max = Math.max(1, ...days.map((d) => d.revenue));
   const w = 700, h = 160, padBottom = 22, barGap = 4;
@@ -538,7 +547,7 @@ async function renderTargets() {
 $('#rep-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const fd = new FormData(e.target);
-  await api('/reps', { method: 'POST', body: JSON.stringify({ name: fd.get('name'), role: fd.get('role') }) });
+  await api('/reps', { method: 'POST', body: JSON.stringify({ name: fd.get('name'), role: fd.get('role'), title: fd.get('title') || '' }) });
   e.target.reset();
   const reps = await api('/reps');
   state.reps = reps;
@@ -566,11 +575,12 @@ async function renderRoster() {
     return;
   }
   el.innerHTML = `<table>
-    <tr><th>Name</th><th>Role</th><th>Status</th><th></th></tr>
+    <tr><th>Name</th><th>Title</th><th>Role</th><th>Status</th><th></th></tr>
     ${reps
       .map(
         (r) => `<tr>
         <td>${escapeHtml(r.name)}</td>
+        <td>${r.title ? escapeHtml(r.title) : '<span style="color:var(--text-muted)">—</span>'}</td>
         <td>${r.role === 'closer' ? 'Closer' : 'Setter'}</td>
         <td>${r.active === false ? 'Inactive' : 'Active'}</td>
         <td>
@@ -667,6 +677,130 @@ $('#send-eod-now').addEventListener('click', async () => {
   } catch (err) {
     $('#eod-status').textContent = 'Failed: ' + err.message;
   }
+});
+
+// ===================== Lead Sources (Team tab) =====================
+$('#lead-source-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  await api('/lead-sources', { method: 'POST', body: JSON.stringify({ name: fd.get('name') }) });
+  e.target.reset();
+  const leadSources = await api('/lead-sources');
+  state.leadSources = leadSources;
+  populateSelects();
+  renderLeadSourcesList();
+});
+
+async function renderLeadSourcesList() {
+  const list = await api('/lead-sources');
+  state.leadSources = list;
+  const el = $('#lead-sources-list');
+  if (!list.length) {
+    el.innerHTML = '<div class="empty-state">No lead sources added yet. Add some to track where your closes come from.</div>';
+    return;
+  }
+  el.innerHTML = `<table>
+    <tr><th>Source</th><th></th></tr>
+    ${list.map((ls) => `<tr>
+      <td>${escapeHtml(ls.name)}</td>
+      <td><button class="row-delete" data-id="${ls.id}">Delete</button></td>
+    </tr>`).join('')}
+  </table>`;
+  $$('.row-delete', el).forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('Delete this lead source?')) return;
+      await api(`/lead-sources/${btn.dataset.id}`, { method: 'DELETE' });
+      const leadSources = await api('/lead-sources');
+      state.leadSources = leadSources;
+      populateSelects();
+      renderLeadSourcesList();
+    });
+  });
+}
+
+// ===================== Reports tab =====================
+function setReportDefaults() {
+  const today = new Date();
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - (today.getDay() === 0 ? 6 : today.getDay() - 1));
+  $('#report-form [name="start"]').value = ymd(monday);
+  $('#report-form [name="end"]').value = todayISO();
+}
+
+$('#report-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const start = fd.get('start');
+  const end = fd.get('end');
+  const data = await api(`/report?start=${start}&end=${end}`);
+  renderReportOutput(data);
+  $('#report-output').classList.remove('hidden');
+});
+
+function fmtDateLabel(iso) {
+  const [y, m, d] = iso.split('-');
+  return new Date(Number(y), Number(m) - 1, Number(d)).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function renderReportOutput(data) {
+  const closeRows = data.closes.length
+    ? data.closes.map((c) => `<tr>
+        <td>${c.date}</td>
+        <td>${escapeHtml(c.repName)}</td>
+        <td>${escapeHtml(c.productName)}</td>
+        <td>${escapeHtml(c.leadSource || '—')}</td>
+        <td>${c.setterName ? escapeHtml(c.setterName) : '—'}</td>
+        <td class="amount">${fmtMoney(c.amount)}</td>
+      </tr>`).join('')
+    : '<tr><td colspan="6" style="color:var(--text-muted);font-style:italic;">No closes in this range</td></tr>';
+
+  const sourceRows = data.bySource.length
+    ? data.bySource.map((s) => `<tr>
+        <td>${escapeHtml(s.source)}</td>
+        <td>${s.closes}</td>
+        <td class="amount">${fmtMoney(s.revenue)}</td>
+      </tr>`).join('')
+    : '<tr><td colspan="3" style="color:var(--text-muted);font-style:italic;">No data</td></tr>';
+
+  $('#report-content').innerHTML = `
+    <div class="report-header">
+      <img src="/logo.PNG" alt="MOW" class="report-logo" />
+      <div class="report-title-block">
+        <div class="report-title">Man of War — Sales Report</div>
+        <div class="report-period">${fmtDateLabel(data.start)} &ndash; ${fmtDateLabel(data.end)}</div>
+      </div>
+    </div>
+
+    <div class="report-summary">
+      <div class="report-stat">
+        <div class="report-stat-num">${data.totals.closes}</div>
+        <div class="report-stat-label">Total Closes</div>
+      </div>
+      <div class="report-stat">
+        <div class="report-stat-num">${fmtMoney(data.totals.revenue)}</div>
+        <div class="report-stat-label">Cash Collected</div>
+      </div>
+    </div>
+
+    <h3 class="report-section-title">Closes</h3>
+    <div class="data-table">
+      <table>
+        <tr><th>Date</th><th>Rep</th><th>Program</th><th>Lead Source</th><th>Setter</th><th>Amount</th></tr>
+        ${closeRows}
+      </table>
+    </div>
+
+    <h3 class="report-section-title" style="margin-top:24px;">Lead Source Breakdown</h3>
+    <div class="data-table">
+      <table>
+        <tr><th>Source</th><th>Closes</th><th>Revenue</th></tr>
+        ${sourceRows}
+      </table>
+    </div>`;
+}
+
+$('#print-report-btn').addEventListener('click', () => {
+  window.print();
 });
 
 // ===================== Boot =====================

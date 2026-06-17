@@ -13,6 +13,7 @@ const FILES = {
   setterLogs: 'setterLogs.json',
   targets: 'targets.json',
   settings: 'settings.json',
+  leadSources: 'leadSources.json',
 };
 
 const DEFAULTS = {
@@ -21,6 +22,7 @@ const DEFAULTS = {
   closes: [],
   setterLogs: [],
   targets: [],
+  leadSources: [],
   settings: {
     businessName: 'Man of War',
     eod: { enabled: false, time: '20:00', timezone: 'America/New_York', recipientEmail: '' },

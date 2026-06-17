@@ -43,6 +43,7 @@
       <button class="nav-link" data-tab="calendar">Calendar</button>
       <button class="nav-link" data-tab="targets">Targets</button>
       <button class="nav-link" data-tab="team">Team</button>
+      <button class="nav-link" data-tab="reports">Reports</button>
     </nav>
     <button id="logout-btn" class="logout-btn">Sign out</button>
   </aside>
@@ -71,6 +72,7 @@
               <label>Program<select name="productId"></select></label>
               <label>Amount ($)<input type="number" name="amount" min="0" step="0.01" required /></label>
               <label>Setter (if applicable)<select name="setterId"><option value="">—</option></select></label>
+              <label>Lead source<select name="leadSource"><option value="">— Unknown</option></select></label>
               <label class="full">Notes<input type="text" name="notes" placeholder="Optional" /></label>
               <button type="submit" class="primary-btn">Log close</button>
             </form>
@@ -240,6 +242,19 @@
             <div id="products-list" class="data-table"></div>
           </div>
 
+          <div class="card">
+            <h2>Add a lead source</h2>
+            <form id="lead-source-form" class="entry-form">
+              <label class="full">Source name<input type="text" name="name" placeholder="e.g. Instagram, Referral" required /></label>
+              <button type="submit" class="primary-btn">Add</button>
+            </form>
+          </div>
+
+          <div class="card wide">
+            <h2>Lead sources</h2>
+            <div id="lead-sources-list" class="data-table"></div>
+          </div>
+
           <div class="card wide">
             <h2>End-of-day email</h2>
             <form id="eod-form" class="entry-form">
@@ -260,6 +275,29 @@
               </div>
               <p id="eod-status" class="hint-text"></p>
             </form>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ===================== REPORTS TAB ===================== -->
+      <section id="tab-reports" class="tab-panel hidden">
+        <div class="panel-grid">
+
+          <div class="card wide" id="report-form-card">
+            <h2>Generate report</h2>
+            <form id="report-form" class="entry-form">
+              <label>From<input type="date" name="start" required /></label>
+              <label>To<input type="date" name="end" required /></label>
+              <button type="submit" class="primary-btn">Pull report</button>
+            </form>
+          </div>
+
+          <div id="report-output" class="card wide hidden">
+            <div id="report-content"></div>
+            <div class="no-print" style="margin-top:18px;">
+              <button id="print-report-btn" class="secondary-btn" style="width:auto;padding:10px 28px;">Print / Save as PDF</button>
+            </div>
           </div>
 
         </div>

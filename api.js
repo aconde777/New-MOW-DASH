@@ -16,11 +16,11 @@ router.get('/reps', (req, res) => {
 });
 
 router.post('/reps', (req, res) => {
-  const { name, role } = req.body;
+  const { name, role, title } = req.body;
   if (!name || !['closer', 'setter'].includes(role)) {
     return res.status(400).json({ error: 'name and role ("closer" or "setter") are required' });
   }
-  const rep = store.insert('reps', { name: name.trim(), role, active: true });
+  const rep = store.insert('reps', { name: name.trim(), role, title: (title || '').trim(), active: true });
   res.status(201).json(rep);
 });
 
@@ -58,6 +58,23 @@ router.delete('/products/:id', (req, res) => {
   res.json({ ok: true });
 });
 
+// ---------- Lead Sources ----------
+router.get('/lead-sources', (req, res) => {
+  res.json(store.all('leadSources').sort((a, b) => a.name.localeCompare(b.name)));
+});
+
+router.post('/lead-sources', (req, res) => {
+  const { name } = req.body;
+  if (!name) return res.status(400).json({ error: 'name is required' });
+  const ls = store.insert('leadSources', { name: name.trim() });
+  res.status(201).json(ls);
+});
+
+router.delete('/lead-sources/:id', (req, res) => {
+  store.remove('leadSources', req.params.id);
+  res.json({ ok: true });
+});
+
 // ---------- Closes (sales log) ----------
 router.get('/closes', (req, res) => {
   let closes = store.all('closes');
@@ -70,7 +87,7 @@ router.get('/closes', (req, res) => {
 });
 
 router.post('/closes', (req, res) => {
-  const { date, repId, productId, amount, setterId, notes } = req.body;
+  const { date, repId, productId, amount, setterId, notes, leadSource } = req.body;
   if (!date || !repId || amount === undefined) {
     return res.status(400).json({ error: 'date, repId, and amount are required' });
   }
@@ -81,6 +98,7 @@ router.post('/closes', (req, res) => {
     amount: Number(amount),
     setterId: setterId || null,
     notes: notes || '',
+    leadSource: leadSource || null,
   });
   res.status(201).json(close);
 });
@@ -229,6 +247,46 @@ router.get('/calendar/day', (req, res) => {
   const setterLogs = metrics.setterLogsInRange(date, date).map((l) => ({ ...l, setterName: repName(l.setterId) }));
 
   res.json({ date, closes, setterLogs, aggregate: dayAggregate(date) });
+});
+
+// ---------- Report ----------
+router.get('/report', (req, res) => {
+  const { start, end } = req.query;
+  if (!start || !end) return res.status(400).json({ error: 'start and end are required' });
+
+  const reps = store.all('reps');
+  const products = store.all('products');
+  const repName = (id) => reps.find((r) => r.id === id)?.name || 'Unknown';
+  const productName = (id) => products.find((p) => p.id === id)?.name || '—';
+
+  const closes = metrics
+    .closesInRange(start, end)
+    .map((c) => ({
+      ...c,
+      repName: repName(c.repId),
+      productName: productName(c.productId),
+      setterName: c.setterId ? repName(c.setterId) : null,
+      leadSource: c.leadSource || null,
+    }))
+    .sort((a, b) => (a.date < b.date ? -1 : 1));
+
+  const totalRevenue = closes.reduce((s, c) => s + Number(c.amount || 0), 0);
+
+  const bySource = {};
+  closes.forEach((c) => {
+    const key = c.leadSource || '—';
+    if (!bySource[key]) bySource[key] = { source: key, closes: 0, revenue: 0 };
+    bySource[key].closes++;
+    bySource[key].revenue += Number(c.amount || 0);
+  });
+
+  res.json({
+    start,
+    end,
+    closes,
+    totals: { closes: closes.length, revenue: totalRevenue },
+    bySource: Object.values(bySource).sort((a, b) => b.revenue - a.revenue),
+  });
 });
 
 // ---------- Targets & Goals ----------
