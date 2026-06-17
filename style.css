@@ -68,12 +68,11 @@ input, select { font-family: inherit; }
 .login-card::after { bottom: -1px; right: -1px; border-bottom: 2px solid var(--accent); border-right: 2px solid var(--accent); }
 
 .login-mark {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 13px;
-  letter-spacing: 0.18em;
-  color: var(--accent);
-  margin-bottom: 14px;
+  width: 110px;
+  height: auto;
+  display: block;
+  margin: 0 auto 14px;
+  object-fit: contain;
 }
 .login-card h1 {
   font-family: var(--font-display);
@@ -129,15 +128,10 @@ input, select { font-family: inherit; }
 }
 .sidebar-brand { display: flex; align-items: center; gap: 10px; margin-bottom: 28px; padding: 0 6px; }
 .brand-mark {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 13px;
-  background: var(--accent-soft);
-  color: var(--accent);
-  border: 1px solid var(--accent);
-  padding: 5px 7px;
-  border-radius: 3px;
-  letter-spacing: 0.05em;
+  height: 42px;
+  width: auto;
+  flex-shrink: 0;
+  object-fit: contain;
 }
 .brand-title { font-family: var(--font-display); font-weight: 600; font-size: 14px; letter-spacing: 0.07em; }
 .brand-sub { font-size: 11px; color: var(--text-muted); letter-spacing: 0.04em; }
@@ -276,7 +270,8 @@ input, select { font-family: inherit; }
 .lb-row.rank-1::before { top: -1px; left: -1px; border-top: 2px solid var(--accent); border-left: 2px solid var(--accent); }
 .lb-row.rank-1::after { bottom: -1px; right: -1px; border-bottom: 2px solid var(--accent); border-right: 2px solid var(--accent); }
 .lb-rank { font-family: var(--font-mono); font-size: 13px; color: var(--text-muted); width: 20px; }
-.lb-name { flex: 1; font-weight: 600; font-size: 14px; }
+.lb-name { flex: 1; font-weight: 600; font-size: 14px; display: flex; flex-direction: column; gap: 2px; }
+.lb-title { font-weight: 400; font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
 .lb-stats { display: flex; gap: 16px; font-family: var(--font-mono); font-size: 13px; color: var(--text); }
 .lb-stats .sub { color: var(--text-muted); font-size: 11px; display: block; font-family: var(--font-body); text-transform: uppercase; letter-spacing: 0.03em; margin-top: 1px; }
 .setter-leaderboard .lb-row { flex-wrap: wrap; }

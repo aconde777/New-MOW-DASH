@@ -40,6 +40,7 @@ app.use('/api', apiRouter);
 // ---------- Static frontend ----------
 app.get('/style.css', (req, res) => res.sendFile(path.join(__dirname, 'style.css')));
 app.get('/app.js', (req, res) => res.sendFile(path.join(__dirname, 'app.js')));
+app.get('/logo.PNG', (req, res) => res.sendFile(path.join(__dirname, 'logo.PNG')));
 
 // Express 5 catch-all syntax: '*' must be a named wildcard or regex, not a bare string.
 app.get(/.*/, (req, res) => {
