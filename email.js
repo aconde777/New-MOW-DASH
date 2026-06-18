@@ -72,13 +72,14 @@ async function sendEodSummary(dateStr) {
   const resend = new Resend(process.env.RESEND_API_KEY);
   const html = buildEodSummaryHtml(dateStr);
   const fromAddress = process.env.RESEND_FROM || 'Man of War Dashboard <onboarding@resend.dev>';
-  const result = await resend.emails.send({
+  const { data, error } = await resend.emails.send({
     from: fromAddress,
     to: settings.eod.recipientEmail,
     subject: `MOW EOD Summary — ${dateStr || todayStr()}`,
     html,
   });
-  return result;
+  if (error) throw new Error(error.message || JSON.stringify(error));
+  return data;
 }
 
 module.exports = { buildEodSummaryHtml, sendEodSummary };
