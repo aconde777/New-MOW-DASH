@@ -284,6 +284,59 @@
       <section id="tab-reports" class="tab-panel hidden">
         <div class="panel-grid">
 
+          <div class="card" id="eod-report-form-card">
+            <h2>Submit end of day report</h2>
+            <form id="eod-report-form" class="entry-form">
+              <label>Rep<select name="repId" required></select></label>
+              <label>Date<input type="date" name="date" required /></label>
+              <label>Calls<input type="number" name="calls" min="0" value="0" /></label>
+              <label>Outbounds<input type="number" name="outbounds" min="0" value="0" /></label>
+              <label>Meetings Set<input type="number" name="meetingsSet" min="0" value="0" /></label>
+              <label>No Shows<input type="number" name="noShows" min="0" value="0" /></label>
+              <label>Follow Ups Set<input type="number" name="followUpsSet" min="0" value="0" /></label>
+              <label class="full">Notes<input type="text" name="notes" placeholder="Optional" /></label>
+              <div class="form-actions">
+                <button type="submit" class="primary-btn">Submit report</button>
+              </div>
+              <p id="eod-report-status" class="hint-text"></p>
+            </form>
+          </div>
+
+          <div class="card hidden" id="eod-rep-card-wrap">
+            <h2>Your EOD snapshot</h2>
+            <div id="eod-rep-card"></div>
+            <div class="no-print" style="margin-top:14px;">
+              <button id="eod-rep-card-print" type="button" class="secondary-btn" style="width:auto;padding:10px 24px;">Print / Screenshot</button>
+            </div>
+          </div>
+
+          <div class="card" id="eod-team-form-card">
+            <h2>Team EOD snapshot</h2>
+            <form id="eod-team-form" class="entry-form">
+              <label>Date<input type="date" name="date" required /></label>
+              <button type="submit" class="primary-btn">Load team snapshot</button>
+            </form>
+          </div>
+
+          <div class="card wide hidden" id="eod-team-output-card">
+            <h2>Sales team EOD</h2>
+            <div id="eod-team-card"></div>
+            <div class="no-print" style="margin-top:14px;">
+              <button id="eod-team-card-print" type="button" class="secondary-btn" style="width:auto;padding:10px 24px;">Print / Screenshot</button>
+            </div>
+          </div>
+
+          <div class="card wide" id="eod-history-card">
+            <h2>EOD report history</h2>
+            <form id="eod-history-form" class="entry-form">
+              <label>Rep<select name="repId"></select></label>
+              <label>From<input type="date" name="start" /></label>
+              <label>To<input type="date" name="end" /></label>
+              <button type="submit" class="primary-btn">Filter</button>
+            </form>
+            <div id="eod-history-table" class="data-table" style="margin-top:16px;"></div>
+          </div>
+
           <div class="card wide" id="report-form-card">
             <h2>Generate report</h2>
             <form id="report-form" class="entry-form">

@@ -14,6 +14,7 @@ const FILES = {
   targets: 'targets.json',
   settings: 'settings.json',
   leadSources: 'leadSources.json',
+  eodReports: 'eodReports.json',
 };
 
 const DEFAULTS = {
@@ -23,6 +24,7 @@ const DEFAULTS = {
   setterLogs: [],
   targets: [],
   leadSources: [],
+  eodReports: [],
   settings: {
     businessName: 'Man of War',
     eod: { enabled: false, time: '20:00', timezone: 'America/New_York', recipientEmail: '' },

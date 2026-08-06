@@ -271,6 +271,7 @@ input, select { font-family: inherit; }
 .data-table td { padding: 10px 10px; border-bottom: 1px solid var(--border-soft); }
 .data-table tr:last-child td { border-bottom: none; }
 .data-table .amount { font-family: var(--font-mono); color: var(--good); }
+.totals-row td { border-top: 2px solid var(--accent); }
 .row-delete { background: none; border: 1px solid var(--border); color: var(--text-muted); border-radius: 4px; padding: 3px 8px; font-size: 11px; transition: color 0.15s, border-color 0.15s; }
 .row-delete:hover { color: var(--bad); border-color: var(--bad); }
 
@@ -355,7 +356,7 @@ input, select { font-family: inherit; }
 .report-title-block {}
 .report-title { font-family: var(--font-display); font-size: 18px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
 .report-period { font-size: 13px; color: var(--text-muted); margin-top: 3px; }
-.report-summary { display: flex; gap: 16px; margin-bottom: 24px; }
+.report-summary { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 24px; }
 .report-stat {
   background: var(--panel-raised);
   border: 1px solid var(--border);
@@ -386,6 +387,9 @@ input, select { font-family: inherit; }
   #tab-targets,
   #tab-team,
   #report-form-card,
+  #eod-report-form-card,
+  #eod-team-form-card,
+  #eod-history-card,
   .no-print { display: none !important; }
 
   body { background: #fff !important; color: #111 !important; }
@@ -393,7 +397,16 @@ input, select { font-family: inherit; }
   .main-col { overflow: visible !important; }
   .content { overflow: visible !important; padding: 0 !important; }
   #tab-reports { display: block !important; }
-  #report-output { display: block !important; border: none !important; padding: 0 !important; background: transparent !important; }
+
+  /* Only the card matching the clicked "Print / Screenshot" button is shown. */
+  #report-output,
+  #eod-rep-card-wrap,
+  #eod-team-output-card { display: none !important; }
+  body[data-print-target="report-output"] #report-output,
+  body[data-print-target="eod-rep-card-wrap"] #eod-rep-card-wrap,
+  body[data-print-target="eod-team-output-card"] #eod-team-output-card {
+    display: block !important; border: none !important; padding: 0 !important; background: transparent !important;
+  }
 
   .report-header { border-bottom: 2px solid #111 !important; }
   .report-title { color: #111 !important; }
@@ -404,6 +417,7 @@ input, select { font-family: inherit; }
   .report-section-title { color: #333 !important; }
   .data-table table { color: #111 !important; }
   .data-table th { color: #555 !important; border-bottom-color: #ccc !important; }
+  .totals-row td { border-top-color: #333 !important; }
   .data-table td { border-bottom-color: #eee !important; }
   .data-table .amount { color: #111 !important; }
 }

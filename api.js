@@ -289,6 +289,84 @@ router.get('/report', (req, res) => {
   });
 });
 
+// ---------- EOD Reports (rep end-of-day) ----------
+router.get('/eod-reports', (req, res) => {
+  let reports = store.all('eodReports');
+  const { start, end, date, repId } = req.query;
+  if (date) reports = reports.filter((r) => r.date === date);
+  else if (start && end) reports = reports.filter((r) => inRange(r.date, start, end));
+  if (repId) reports = reports.filter((r) => r.repId === repId);
+
+  const reps = store.all('reps');
+  const repName = (id) => reps.find((r) => r.id === id)?.name || 'Unknown';
+  reports = reports.map((r) => ({ ...r, repName: repName(r.repId) }));
+  reports.sort((a, b) => (a.date < b.date ? 1 : -1));
+  res.json(reports);
+});
+
+// A rep submits (or re-submits/corrects) their own EOD report for a given date.
+// Sales for that rep/day are pulled live from the Sales log and snapshotted onto
+// the record, so the report stays accurate to what was known at submit time.
+router.post('/eod-reports', (req, res) => {
+  const { date, repId, calls, outbounds, meetingsSet, noShows, followUpsSet, notes } = req.body;
+  if (!date || !repId) return res.status(400).json({ error: 'date and repId are required' });
+
+  const dayCloses = metrics.closesInRange(date, date).filter((c) => c.repId === repId);
+  const salesClosed = dayCloses.length;
+  const revenue = dayCloses.reduce((sum, c) => sum + Number(c.amount || 0), 0);
+
+  const payload = {
+    date,
+    repId,
+    calls: Number(calls || 0),
+    outbounds: Number(outbounds || 0),
+    meetingsSet: Number(meetingsSet || 0),
+    noShows: Number(noShows || 0),
+    followUpsSet: Number(followUpsSet || 0),
+    notes: notes || '',
+    salesClosed,
+    revenue,
+  };
+
+  const existing = store.all('eodReports').find((r) => r.date === date && r.repId === repId);
+  const saved = existing ? store.update('eodReports', existing.id, payload) : store.insert('eodReports', payload);
+  res.status(existing ? 200 : 201).json(saved);
+});
+
+router.delete('/eod-reports/:id', (req, res) => {
+  store.remove('eodReports', req.params.id);
+  res.json({ ok: true });
+});
+
+// Combines every rep's EOD report for one date into a single team snapshot.
+router.get('/eod-reports/team', (req, res) => {
+  const date = req.query.date;
+  if (!date) return res.status(400).json({ error: 'date is required' });
+
+  const reps = store.all('reps');
+  const repName = (id) => reps.find((r) => r.id === id)?.name || 'Unknown';
+  const rows = store
+    .all('eodReports')
+    .filter((r) => r.date === date)
+    .map((r) => ({ ...r, repName: repName(r.repId) }))
+    .sort((a, b) => a.repName.localeCompare(b.repName));
+
+  const totals = rows.reduce(
+    (acc, r) => ({
+      calls: acc.calls + r.calls,
+      outbounds: acc.outbounds + r.outbounds,
+      meetingsSet: acc.meetingsSet + r.meetingsSet,
+      noShows: acc.noShows + r.noShows,
+      followUpsSet: acc.followUpsSet + r.followUpsSet,
+      salesClosed: acc.salesClosed + r.salesClosed,
+      revenue: acc.revenue + r.revenue,
+    }),
+    { calls: 0, outbounds: 0, meetingsSet: 0, noShows: 0, followUpsSet: 0, salesClosed: 0, revenue: 0 }
+  );
+
+  res.json({ date, rows, totals });
+});
+
 // ---------- Targets & Goals ----------
 router.get('/targets', (req, res) => {
   const targets = store.all('targets').filter((t) => t.active !== false);

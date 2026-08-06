@@ -20,6 +20,7 @@ function closerLeaderboard(period, anchorDate) {
     return {
       repId: rep.id,
       name: rep.name,
+      title: rep.title || '',
       closes: repCloses.length,
       revenue,
     };

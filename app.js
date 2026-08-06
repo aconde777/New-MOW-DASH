@@ -98,7 +98,7 @@ $$('.nav-link').forEach((btn) => {
     if (tab === 'calendar') renderCalendar();
     if (tab === 'targets') renderTargets();
     if (tab === 'team') { renderRoster(); renderProductsList(); renderLeadSourcesList(); }
-    if (tab === 'reports') setReportDefaults();
+    if (tab === 'reports') { setReportDefaults(); setEodDefaults(); renderEodHistory(); }
   });
 });
 
@@ -131,6 +131,8 @@ function populateSelects() {
   fillSelect($('#close-form [name="repId"]'), closers, 'Select rep');
   fillSelect($('#close-form [name="setterId"]'), setters, '— (none)', true);
   fillSelect($('#setter-form [name="setterId"]'), setters, 'Select setter');
+  fillSelect($('#eod-report-form [name="repId"]'), closers, 'Select rep');
+  fillSelect($('#eod-history-form [name="repId"]'), closers, 'All reps', true);
 
   const productSelect = $('#close-form [name="productId"]');
   productSelect.innerHTML = '<option value="">— No program selected</option>' +
@@ -718,6 +720,149 @@ async function renderLeadSourcesList() {
   });
 }
 
+// ===================== EOD Reports =====================
+function setEodDefaults() {
+  $('#eod-report-form [name="date"]').value = todayISO();
+  $('#eod-team-form [name="date"]').value = todayISO();
+}
+
+$('#eod-report-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const payload = {
+    date: fd.get('date'),
+    repId: fd.get('repId'),
+    calls: Number(fd.get('calls') || 0),
+    outbounds: Number(fd.get('outbounds') || 0),
+    meetingsSet: Number(fd.get('meetingsSet') || 0),
+    noShows: Number(fd.get('noShows') || 0),
+    followUpsSet: Number(fd.get('followUpsSet') || 0),
+    notes: fd.get('notes') || '',
+  };
+  const status = $('#eod-report-status');
+  status.textContent = 'Saving…';
+  try {
+    const saved = await api('/eod-reports', { method: 'POST', body: JSON.stringify(payload) });
+    status.textContent = 'Report saved.';
+    renderEodRepCard(saved);
+    $('#eod-rep-card-wrap').classList.remove('hidden');
+    await renderEodHistory();
+  } catch (err) {
+    status.textContent = err.message;
+  }
+});
+
+function renderEodRepCard(r) {
+  $('#eod-rep-card').innerHTML = `
+    <div class="report-header">
+      <img src="/logo.PNG" alt="MOW" class="report-logo" />
+      <div class="report-title-block">
+        <div class="report-title">${escapeHtml(repName(r.repId))} — EOD Report</div>
+        <div class="report-period">${fmtDateLabel(r.date)}</div>
+      </div>
+    </div>
+    <div class="report-summary">
+      <div class="report-stat"><div class="report-stat-num">${r.calls}</div><div class="report-stat-label">Calls</div></div>
+      <div class="report-stat"><div class="report-stat-num">${r.outbounds}</div><div class="report-stat-label">Outbounds</div></div>
+      <div class="report-stat"><div class="report-stat-num">${r.meetingsSet}</div><div class="report-stat-label">Meetings Set</div></div>
+      <div class="report-stat"><div class="report-stat-num">${r.noShows}</div><div class="report-stat-label">No Shows</div></div>
+      <div class="report-stat"><div class="report-stat-num">${r.followUpsSet}</div><div class="report-stat-label">Follow Ups Set</div></div>
+      <div class="report-stat"><div class="report-stat-num">${r.salesClosed}</div><div class="report-stat-label">Sales Closed</div></div>
+      <div class="report-stat"><div class="report-stat-num">${fmtMoney(r.revenue)}</div><div class="report-stat-label">Revenue</div></div>
+    </div>
+    ${r.notes ? `<div class="hint-text" style="font-size:13px;">${escapeHtml(r.notes)}</div>` : ''}
+  `;
+}
+
+$('#eod-team-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const date = fd.get('date');
+  const data = await api(`/eod-reports/team?date=${date}`);
+  renderEodTeamCard(data);
+  $('#eod-team-output-card').classList.remove('hidden');
+});
+
+function renderEodTeamCard(data) {
+  const rows = data.rows.length
+    ? data.rows.map((r) => `<tr>
+        <td>${escapeHtml(r.repName)}</td>
+        <td>${r.calls}</td>
+        <td>${r.outbounds}</td>
+        <td>${r.meetingsSet}</td>
+        <td>${r.noShows}</td>
+        <td>${r.followUpsSet}</td>
+        <td>${r.salesClosed}</td>
+        <td class="amount">${fmtMoney(r.revenue)}</td>
+      </tr>`).join('')
+    : '<tr><td colspan="8" style="color:var(--text-muted);font-style:italic;">No EOD reports submitted for this date</td></tr>';
+
+  $('#eod-team-card').innerHTML = `
+    <div class="report-header">
+      <img src="/logo.PNG" alt="MOW" class="report-logo" />
+      <div class="report-title-block">
+        <div class="report-title">Man of War — Sales Team EOD</div>
+        <div class="report-period">${fmtDateLabel(data.date)}</div>
+      </div>
+    </div>
+    <div class="data-table">
+      <table>
+        <tr><th>Rep</th><th>Calls</th><th>Outbounds</th><th>Meetings Set</th><th>No Shows</th><th>Follow Ups</th><th>Sales</th><th>Revenue</th></tr>
+        ${rows}
+        <tr class="totals-row">
+          <td><strong>Team Total</strong></td>
+          <td><strong>${data.totals.calls}</strong></td>
+          <td><strong>${data.totals.outbounds}</strong></td>
+          <td><strong>${data.totals.meetingsSet}</strong></td>
+          <td><strong>${data.totals.noShows}</strong></td>
+          <td><strong>${data.totals.followUpsSet}</strong></td>
+          <td><strong>${data.totals.salesClosed}</strong></td>
+          <td class="amount"><strong>${fmtMoney(data.totals.revenue)}</strong></td>
+        </tr>
+      </table>
+    </div>`;
+}
+
+async function renderEodHistory() {
+  const fd = new FormData($('#eod-history-form'));
+  const repId = fd.get('repId');
+  const start = fd.get('start');
+  const end = fd.get('end');
+  const query = start && end ? `?start=${start}&end=${end}` : '';
+  const data = await api(`/eod-reports${query}`);
+  const filtered = repId ? data.filter((r) => r.repId === repId) : data;
+  const rows = filtered.length
+    ? filtered.slice(0, 60).map((r) => `<tr>
+        <td>${r.date}</td>
+        <td>${escapeHtml(r.repName)}</td>
+        <td>${r.calls}</td>
+        <td>${r.outbounds}</td>
+        <td>${r.meetingsSet}</td>
+        <td>${r.noShows}</td>
+        <td>${r.followUpsSet}</td>
+        <td>${r.salesClosed}</td>
+        <td class="amount">${fmtMoney(r.revenue)}</td>
+      </tr>`).join('')
+    : '<tr><td colspan="9" style="color:var(--text-muted);font-style:italic;">No EOD reports yet</td></tr>';
+
+  $('#eod-history-table').innerHTML = `<table>
+    <tr><th>Date</th><th>Rep</th><th>Calls</th><th>Outbounds</th><th>Meetings Set</th><th>No Shows</th><th>Follow Ups</th><th>Sales</th><th>Revenue</th></tr>
+    ${rows}
+  </table>`;
+}
+
+$('#eod-history-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  await renderEodHistory();
+});
+
+function printOnly(targetId) {
+  document.body.setAttribute('data-print-target', targetId);
+  window.print();
+}
+$('#eod-rep-card-print').addEventListener('click', () => printOnly('eod-rep-card-wrap'));
+$('#eod-team-card-print').addEventListener('click', () => printOnly('eod-team-output-card'));
+
 // ===================== Reports tab =====================
 function setReportDefaults() {
   const today = new Date();
@@ -800,7 +945,7 @@ function renderReportOutput(data) {
 }
 
 $('#print-report-btn').addEventListener('click', () => {
-  window.print();
+  printOnly('report-output');
 });
 
 // ===================== Boot =====================
