@@ -44,6 +44,7 @@
       <button class="nav-link" data-tab="targets">Targets</button>
       <button class="nav-link" data-tab="team">Team</button>
       <button class="nav-link" data-tab="reports">Reports</button>
+      <button class="nav-link" data-tab="training">Sales Training</button>
     </nav>
     <button id="logout-btn" class="logout-btn">Sign out</button>
   </aside>
@@ -64,13 +65,32 @@
       <section id="tab-sales" class="tab-panel">
         <div class="panel-grid">
 
+          <div class="card wide" id="sales-hero-card">
+            <div class="sales-hero">
+              <div class="sales-hero-main">
+                <div class="sales-hero-block">
+                  <div class="sales-hero-label">New Cash Collected</div>
+                  <div class="sales-hero-num" id="hero-revenue">—</div>
+                  <div class="sales-hero-sub" id="hero-closes-sub">— closes today</div>
+                </div>
+                <div class="sales-hero-block">
+                  <div class="sales-hero-label">Total Cash Collected</div>
+                  <div class="sales-hero-num" id="hero-total-cash">—</div>
+                  <div class="sales-hero-sub">incl. payment plans</div>
+                </div>
+              </div>
+              <div class="sales-hero-targets" id="hero-targets"></div>
+            </div>
+          </div>
+
           <div class="card">
             <h2>Log a close</h2>
             <form id="close-form" class="entry-form">
               <label>Date<input type="date" name="date" required /></label>
               <label>Rep<select name="repId" required></select></label>
               <label>Program<select name="productId"></select></label>
-              <label>Amount ($)<input type="number" name="amount" min="0" step="0.01" required /></label>
+              <label>Amount ($)<input type="number" name="amount" min="0" step="0.01" /></label>
+              <label>Payment Plan ($)<input type="number" name="paymentPlanAmount" min="0" step="0.01" value="0" /></label>
               <label>Setter (if applicable)<select name="setterId"><option value="">—</option></select></label>
               <label>Lead source<select name="leadSource"><option value="">— Unknown</option></select></label>
               <label class="full">Notes<input type="text" name="notes" placeholder="Optional" /></label>
@@ -287,6 +307,12 @@
           <div class="card" id="eod-report-form-card">
             <h2>Submit end of day report</h2>
             <form id="eod-report-form" class="entry-form">
+              <label>Team
+                <select name="role">
+                  <option value="closer">Sales</option>
+                  <option value="setter">Setter</option>
+                </select>
+              </label>
               <label>Rep<select name="repId" required></select></label>
               <label>Date<input type="date" name="date" required /></label>
               <label>Calls<input type="number" name="calls" min="0" value="0" /></label>
@@ -294,6 +320,9 @@
               <label>Meetings Set<input type="number" name="meetingsSet" min="0" value="0" /></label>
               <label>No Shows<input type="number" name="noShows" min="0" value="0" /></label>
               <label>Follow Ups Set<input type="number" name="followUpsSet" min="0" value="0" /></label>
+              <label>Sales Calls Taken<input type="number" name="salesCallsTaken" min="0" value="0" /></label>
+              <label>Sales Calls Closed<input type="number" name="salesCallsClosed" min="0" value="0" /></label>
+              <label>Payment Plan Cash Collected ($)<input type="number" name="paymentPlanCash" min="0" step="0.01" value="0" /></label>
               <label class="full">Notes<input type="text" name="notes" placeholder="Optional" /></label>
               <div class="form-actions">
                 <button type="submit" class="primary-btn">Submit report</button>
@@ -329,6 +358,13 @@
           <div class="card wide" id="eod-history-card">
             <h2>EOD report history</h2>
             <form id="eod-history-form" class="entry-form">
+              <label>Team
+                <select name="role">
+                  <option value="">All</option>
+                  <option value="closer">Sales</option>
+                  <option value="setter">Setter</option>
+                </select>
+              </label>
               <label>Rep<select name="repId"></select></label>
               <label>From<input type="date" name="start" /></label>
               <label>To<input type="date" name="end" /></label>
@@ -353,6 +389,17 @@
             </div>
           </div>
 
+        </div>
+      </section>
+
+      <!-- ===================== SALES TRAINING TAB ===================== -->
+      <section id="tab-training" class="tab-panel hidden">
+        <div class="panel-grid">
+          <div class="card wide training-card">
+            <h2>Sales Training</h2>
+            <p class="training-copy">All playbooks, call recordings, and onboarding material live in the shared Google Drive folder below.</p>
+            <a class="primary-btn training-link" href="https://drive.google.com/drive/folders/1TjWCJwdgc9-4JGozUPSQi6hVtuEYfJDX?usp=share_link" target="_blank" rel="noopener noreferrer">Open Sales Training in Google Drive</a>
+          </div>
         </div>
       </section>
 

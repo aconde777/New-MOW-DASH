@@ -5,6 +5,12 @@ function closesInRange(start, end) {
   return store.all('closes').filter((c) => inRange(c.date, start, end));
 }
 
+// A close only counts as a new sale if it has a new-cash amount attached.
+// Payment-plan-only entries are recurring revenue on an existing sale, not a new close.
+function isSale(c) {
+  return Number(c.amount || 0) > 0;
+}
+
 function setterLogsInRange(start, end) {
   return store.all('setterLogs').filter((s) => inRange(s.date, start, end));
 }
@@ -21,7 +27,7 @@ function closerLeaderboard(period, anchorDate) {
       repId: rep.id,
       name: rep.name,
       title: rep.title || '',
-      closes: repCloses.length,
+      closes: repCloses.filter(isSale).length,
       revenue,
     };
   });
@@ -43,7 +49,7 @@ function setterLeaderboard(period, anchorDate) {
     const appointmentsBooked = setterLogsForRep.reduce((sum, l) => sum + Number(l.appointmentsBooked || 0), 0);
     const showUps = setterLogsForRep.reduce((sum, l) => sum + Number(l.showUps || 0), 0);
     const repCloses = closes.filter((c) => c.setterId === setter.id);
-    const closesCount = repCloses.length;
+    const closesCount = repCloses.filter(isSale).length;
     const revenue = repCloses.reduce((sum, c) => sum + Number(c.amount || 0), 0);
 
     return {
@@ -71,7 +77,7 @@ function actualForMetric(metric, start, end, productId) {
     if (productId) closes = closes.filter((c) => c.productId === productId);
     return metric === 'revenue'
       ? closes.reduce((sum, c) => sum + Number(c.amount || 0), 0)
-      : closes.length;
+      : closes.filter(isSale).length;
   }
   const logs = setterLogsInRange(start, end);
   if (metric === 'calls') return logs.reduce((sum, l) => sum + Number(l.callsMade || 0), 0);
@@ -90,6 +96,7 @@ function computeTargetProgress(target) {
 module.exports = {
   closesInRange,
   setterLogsInRange,
+  isSale,
   closerLeaderboard,
   setterLeaderboard,
   computeTargetProgress,

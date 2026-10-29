@@ -111,6 +111,7 @@ async function initApp() {
   populateSelects();
   setDefaultDates();
   await refreshTodayStrip();
+  await renderHeroTargets();
   await renderCloserLeaderboard();
   await renderSetterLeaderboard();
   await renderRecentCloses();
@@ -131,8 +132,8 @@ function populateSelects() {
   fillSelect($('#close-form [name="repId"]'), closers, 'Select rep');
   fillSelect($('#close-form [name="setterId"]'), setters, '— (none)', true);
   fillSelect($('#setter-form [name="setterId"]'), setters, 'Select setter');
-  fillSelect($('#eod-report-form [name="repId"]'), closers, 'Select rep');
-  fillSelect($('#eod-history-form [name="repId"]'), closers, 'All reps', true);
+  fillEodReportReps();
+  fillEodHistoryReps();
 
   const productSelect = $('#close-form [name="productId"]');
   productSelect.innerHTML = '<option value="">— No program selected</option>' +
@@ -171,6 +172,35 @@ async function refreshTodayStrip() {
   $('#today-calls').textContent = s.callsMade;
   $('#today-appts').textContent = s.appointmentsBooked;
   $('#today-shows').textContent = s.showUps;
+  $('#hero-revenue').textContent = fmtMoney(s.revenue);
+  $('#hero-closes-sub').textContent = `${s.closes} close${s.closes === 1 ? '' : 's'} today`;
+  $('#hero-total-cash').textContent = fmtMoney(s.revenue + (s.paymentPlanCash || 0));
+}
+
+// ===================== Sales hero =====================
+async function renderHeroTargets() {
+  const targets = await api('/targets');
+  const revenueTargets = targets.filter((t) => t.metric === 'revenue');
+  const el = $('#hero-targets');
+  if (!revenueTargets.length) {
+    el.innerHTML = '<div class="empty-state">No revenue target set yet — add one in the Targets tab.</div>';
+    return;
+  }
+  el.innerHTML = revenueTargets
+    .map((t) => {
+      const pct = Math.min(1, t.pct);
+      const barClass = pct >= 1 ? '' : pct >= 0.5 ? 'warn' : 'danger';
+      return `
+      <div class="target-row">
+        <div class="target-top">
+          <span class="target-label">${escapeHtml(t.label)}</span>
+          <span class="target-meta">${t.scope} · ${t.period === 'week' ? 'This week' : 'This month'}</span>
+        </div>
+        <div class="target-bar-track"><div class="target-bar-fill ${barClass}" style="width:${pct * 100}%"></div></div>
+        <div class="target-numbers"><span>${fmtMoney(t.actual)} of ${fmtMoney(t.value)} (${fmtPct(t.pct)})</span></div>
+      </div>`;
+    })
+    .join('');
 }
 
 // ===================== Sales tab =====================
@@ -181,15 +211,21 @@ $('#close-form').addEventListener('submit', async (e) => {
     date: fd.get('date'),
     repId: fd.get('repId'),
     productId: fd.get('productId') || null,
-    amount: Number(fd.get('amount')),
+    amount: Number(fd.get('amount') || 0),
+    paymentPlanAmount: Number(fd.get('paymentPlanAmount') || 0),
     setterId: fd.get('setterId') || null,
     notes: fd.get('notes') || '',
     leadSource: fd.get('leadSource') || null,
   };
-  await api('/closes', { method: 'POST', body: JSON.stringify(payload) });
+  try {
+    await api('/closes', { method: 'POST', body: JSON.stringify(payload) });
+  } catch (err) {
+    alert(err.message);
+    return;
+  }
   e.target.reset();
   setDefaultDates();
-  await Promise.all([refreshTodayStrip(), renderCloserLeaderboard(), renderSetterLeaderboard(), renderRecentCloses(), renderTrendChart()]);
+  await Promise.all([refreshTodayStrip(), renderHeroTargets(), renderCloserLeaderboard(), renderSetterLeaderboard(), renderRecentCloses(), renderTrendChart()]);
 });
 
 $('.period-toggle[data-target="closer-leaderboard"]').addEventListener('click', (e) => {
@@ -262,7 +298,7 @@ async function renderRecentCloses() {
     return;
   }
   el.innerHTML = `<table>
-    <tr><th>Date</th><th>Rep</th><th>Program</th><th>Setter</th><th>Amount</th><th></th></tr>
+    <tr><th>Date</th><th>Rep</th><th>Program</th><th>Setter</th><th>Amount</th><th>Payment Plan</th><th></th></tr>
     ${recent
       .map(
         (c) => `<tr>
@@ -271,6 +307,7 @@ async function renderRecentCloses() {
         <td>${escapeHtml(productName(c.productId))}</td>
         <td>${c.setterId ? escapeHtml(repName(c.setterId)) : '—'}</td>
         <td class="amount">${fmtMoney(c.amount)}</td>
+        <td class="amount">${fmtMoney(c.paymentPlanAmount)}</td>
         <td><button class="row-delete" data-id="${c.id}" data-kind="closes">Delete</button></td>
       </tr>`
       )
@@ -418,6 +455,7 @@ async function renderMonthView() {
     html += `<div class="day-cell ${isToday ? 'today' : ''}" data-date="${d.date}">
       <span class="day-num">${dayNum}</span>
       ${d.closes ? `<span class="day-badge rev">${d.closes} · ${fmtMoney(d.revenue)}</span>` : ''}
+      ${d.paymentPlanCash ? `<span class="day-badge pp">PP ${fmtMoney(d.paymentPlanCash)}</span>` : ''}
       ${d.callsMade || d.appointmentsBooked ? `<span class="day-badge act">${d.appointmentsBooked} appt</span>` : ''}
     </div>`;
   });
@@ -442,7 +480,8 @@ async function renderWeekView() {
       <div class="wd-label">${dowFmt(d.date)}</div>
       <div class="wd-date">${d.date.slice(5)}</div>
       <div class="day-badge rev">${d.closes} closes</div>
-      <div class="day-badge rev">${fmtMoney(d.revenue)}</div>
+      <div class="day-badge rev">${fmtMoney(d.revenue)} new</div>
+      <div class="day-badge pp">${fmtMoney(d.paymentPlanCash)} PP</div>
       <div class="day-badge act">${d.callsMade} calls</div>
       <div class="day-badge act">${d.appointmentsBooked} appt</div>
     </div>`
@@ -453,7 +492,9 @@ async function renderWeekView() {
     <div class="week-row">${cards}</div>
     <div class="week-totals">
       <div>${data.totals.closes}<span>Closes</span></div>
-      <div>${fmtMoney(data.totals.revenue)}<span>Revenue</span></div>
+      <div>${fmtMoney(data.totals.revenue)}<span>New Cash</span></div>
+      <div>${fmtMoney(data.totals.paymentPlanCash)}<span>Payment Plan</span></div>
+      <div>${fmtMoney(data.totals.revenue + data.totals.paymentPlanCash)}<span>Total Cash</span></div>
       <div>${data.totals.callsMade}<span>Calls</span></div>
       <div>${data.totals.appointmentsBooked}<span>Appts</span></div>
       <div>${data.totals.showUps}<span>Shows</span></div>
@@ -468,17 +509,23 @@ async function openDayModal(date) {
   const data = await api(`/calendar/day?date=${date}`);
   $('#day-modal-title').textContent = date;
   const closesRows = data.closes
-    .map((c) => `<tr><td>${escapeHtml(c.repName)}</td><td>${escapeHtml(c.productName)}</td><td class="amount">${fmtMoney(c.amount)}</td><td>${c.setterName ? escapeHtml(c.setterName) : '—'}</td></tr>`)
+    .map((c) => `<tr><td>${escapeHtml(c.repName)}</td><td>${escapeHtml(c.productName)}</td><td class="amount">${fmtMoney(c.amount)}</td><td class="amount">${fmtMoney(c.paymentPlanAmount)}</td><td>${c.setterName ? escapeHtml(c.setterName) : '—'}</td></tr>`)
     .join('');
   const logRows = data.setterLogs
     .map((l) => `<tr><td>${escapeHtml(l.setterName)}</td><td>${l.callsMade}</td><td>${l.appointmentsBooked}</td><td>${l.showUps}</td></tr>`)
     .join('');
 
+  const agg = data.aggregate;
   $('#day-modal-body').innerHTML = `
+    <div class="week-totals" style="margin-top:0; padding-top:0; border-top:none; margin-bottom:16px;">
+      <div>${fmtMoney(agg.revenue)}<span>New Cash</span></div>
+      <div>${fmtMoney(agg.paymentPlanCash)}<span>Payment Plan</span></div>
+      <div>${fmtMoney(agg.revenue + agg.paymentPlanCash)}<span>Total Cash</span></div>
+    </div>
     <h4 style="margin:0 0 8px; font-size:13px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.04em;">Closes</h4>
     <div class="data-table"><table>
-      <tr><th>Rep</th><th>Program</th><th>Amount</th><th>Setter</th></tr>
-      ${closesRows || '<tr><td colspan="4" style="color:var(--text-muted);">None logged</td></tr>'}
+      <tr><th>Rep</th><th>Program</th><th>Amount</th><th>Payment Plan</th><th>Setter</th></tr>
+      ${closesRows || '<tr><td colspan="5" style="color:var(--text-muted);">None logged</td></tr>'}
     </table></div>
     <h4 style="margin:16px 0 8px; font-size:13px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.04em;">Setter activity</h4>
     <div class="data-table"><table>
@@ -505,6 +552,7 @@ $('#target-form').addEventListener('submit', async (e) => {
   await api('/targets', { method: 'POST', body: JSON.stringify(payload) });
   e.target.reset();
   renderTargets();
+  renderHeroTargets();
 });
 
 async function renderTargets() {
@@ -541,6 +589,7 @@ async function renderTargets() {
       if (!confirm('Delete this target?')) return;
       await api(`/targets/${btn.dataset.id}`, { method: 'DELETE' });
       renderTargets();
+      renderHeroTargets();
     });
   });
 }
@@ -726,6 +775,31 @@ function setEodDefaults() {
   $('#eod-team-form [name="date"]').value = todayISO();
 }
 
+function roleLabel(role) {
+  return role === 'setter' ? 'Setter' : 'Sales';
+}
+
+function fillEodReportReps() {
+  const role = $('#eod-report-form [name="role"]').value;
+  const list = state.reps.filter((r) => r.role === role && r.active !== false);
+  fillSelect($('#eod-report-form [name="repId"]'), list, 'Select rep');
+}
+$('#eod-report-form [name="role"]').addEventListener('change', fillEodReportReps);
+
+function fillEodHistoryReps() {
+  const role = $('#eod-history-form [name="role"]').value;
+  const list = state.reps
+    .filter((r) => r.active !== false && (!role || r.role === role))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const select = $('#eod-history-form [name="repId"]');
+  select.innerHTML = '<option value="">All reps</option>' +
+    list.map((r) => `<option value="${r.id}">${escapeHtml(r.name)} (${roleLabel(r.role)})</option>`).join('');
+}
+$('#eod-history-form [name="role"]').addEventListener('change', () => {
+  fillEodHistoryReps();
+  renderEodHistory();
+});
+
 $('#eod-report-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const fd = new FormData(e.target);
@@ -737,6 +811,9 @@ $('#eod-report-form').addEventListener('submit', async (e) => {
     meetingsSet: Number(fd.get('meetingsSet') || 0),
     noShows: Number(fd.get('noShows') || 0),
     followUpsSet: Number(fd.get('followUpsSet') || 0),
+    salesCallsTaken: Number(fd.get('salesCallsTaken') || 0),
+    salesCallsClosed: Number(fd.get('salesCallsClosed') || 0),
+    paymentPlanCash: Number(fd.get('paymentPlanCash') || 0),
     notes: fd.get('notes') || '',
   };
   const status = $('#eod-report-status');
@@ -758,7 +835,7 @@ function renderEodRepCard(r) {
       <img src="/logo.PNG" alt="MOW" class="report-logo" />
       <div class="report-title-block">
         <div class="report-title">${escapeHtml(repName(r.repId))} — EOD Report</div>
-        <div class="report-period">${fmtDateLabel(r.date)}</div>
+        <div class="report-period">${roleLabel(r.role)} · ${fmtDateLabel(r.date)}</div>
       </div>
     </div>
     <div class="report-summary">
@@ -767,8 +844,12 @@ function renderEodRepCard(r) {
       <div class="report-stat"><div class="report-stat-num">${r.meetingsSet}</div><div class="report-stat-label">Meetings Set</div></div>
       <div class="report-stat"><div class="report-stat-num">${r.noShows}</div><div class="report-stat-label">No Shows</div></div>
       <div class="report-stat"><div class="report-stat-num">${r.followUpsSet}</div><div class="report-stat-label">Follow Ups Set</div></div>
+      <div class="report-stat"><div class="report-stat-num">${r.salesCallsTaken || 0}</div><div class="report-stat-label">Sales Calls Taken</div></div>
+      <div class="report-stat"><div class="report-stat-num">${r.salesCallsClosed || 0}</div><div class="report-stat-label">Sales Calls Closed</div></div>
       <div class="report-stat"><div class="report-stat-num">${r.salesClosed}</div><div class="report-stat-label">Sales Closed</div></div>
-      <div class="report-stat"><div class="report-stat-num">${fmtMoney(r.revenue)}</div><div class="report-stat-label">Revenue</div></div>
+      <div class="report-stat"><div class="report-stat-num">${fmtMoney(r.revenue)}</div><div class="report-stat-label">New Cash Collected</div></div>
+      <div class="report-stat"><div class="report-stat-num">${fmtMoney(r.paymentPlanCash)}</div><div class="report-stat-label">Payment Plan Cash</div></div>
+      <div class="report-stat"><div class="report-stat-num">${fmtMoney(r.revenue + (r.paymentPlanCash || 0))}</div><div class="report-stat-label">Total Cash Collected</div></div>
     </div>
     ${r.notes ? `<div class="hint-text" style="font-size:13px;">${escapeHtml(r.notes)}</div>` : ''}
   `;
@@ -787,15 +868,20 @@ function renderEodTeamCard(data) {
   const rows = data.rows.length
     ? data.rows.map((r) => `<tr>
         <td>${escapeHtml(r.repName)}</td>
+        <td>${roleLabel(r.role)}</td>
         <td>${r.calls}</td>
         <td>${r.outbounds}</td>
         <td>${r.meetingsSet}</td>
         <td>${r.noShows}</td>
         <td>${r.followUpsSet}</td>
+        <td>${r.salesCallsTaken || 0}</td>
+        <td>${r.salesCallsClosed || 0}</td>
         <td>${r.salesClosed}</td>
         <td class="amount">${fmtMoney(r.revenue)}</td>
+        <td class="amount">${fmtMoney(r.paymentPlanCash)}</td>
+        <td class="amount">${fmtMoney(r.revenue + (r.paymentPlanCash || 0))}</td>
       </tr>`).join('')
-    : '<tr><td colspan="8" style="color:var(--text-muted);font-style:italic;">No EOD reports submitted for this date</td></tr>';
+    : '<tr><td colspan="13" style="color:var(--text-muted);font-style:italic;">No EOD reports submitted for this date</td></tr>';
 
   $('#eod-team-card').innerHTML = `
     <div class="report-header">
@@ -807,17 +893,22 @@ function renderEodTeamCard(data) {
     </div>
     <div class="data-table">
       <table>
-        <tr><th>Rep</th><th>Calls</th><th>Outbounds</th><th>Meetings Set</th><th>No Shows</th><th>Follow Ups</th><th>Sales</th><th>Revenue</th></tr>
+        <tr><th>Rep</th><th>Team</th><th>Calls</th><th>Outbounds</th><th>Meetings Set</th><th>No Shows</th><th>Follow Ups</th><th>Sales Calls Taken</th><th>Sales Calls Closed</th><th>Sales</th><th>New Cash Collected</th><th>Payment Plan Cash</th><th>Total Cash Collected</th></tr>
         ${rows}
         <tr class="totals-row">
           <td><strong>Team Total</strong></td>
+          <td></td>
           <td><strong>${data.totals.calls}</strong></td>
           <td><strong>${data.totals.outbounds}</strong></td>
           <td><strong>${data.totals.meetingsSet}</strong></td>
           <td><strong>${data.totals.noShows}</strong></td>
           <td><strong>${data.totals.followUpsSet}</strong></td>
+          <td><strong>${data.totals.salesCallsTaken}</strong></td>
+          <td><strong>${data.totals.salesCallsClosed}</strong></td>
           <td><strong>${data.totals.salesClosed}</strong></td>
           <td class="amount"><strong>${fmtMoney(data.totals.revenue)}</strong></td>
+          <td class="amount"><strong>${fmtMoney(data.totals.paymentPlanCash)}</strong></td>
+          <td class="amount"><strong>${fmtMoney(data.totals.revenue + data.totals.paymentPlanCash)}</strong></td>
         </tr>
       </table>
     </div>`;
@@ -825,28 +916,34 @@ function renderEodTeamCard(data) {
 
 async function renderEodHistory() {
   const fd = new FormData($('#eod-history-form'));
+  const role = fd.get('role');
   const repId = fd.get('repId');
   const start = fd.get('start');
   const end = fd.get('end');
   const query = start && end ? `?start=${start}&end=${end}` : '';
   const data = await api(`/eod-reports${query}`);
-  const filtered = repId ? data.filter((r) => r.repId === repId) : data;
+  const filtered = data.filter((r) => (repId ? r.repId === repId : true) && (role ? r.role === role : true));
   const rows = filtered.length
     ? filtered.slice(0, 60).map((r) => `<tr>
         <td>${r.date}</td>
         <td>${escapeHtml(r.repName)}</td>
+        <td>${roleLabel(r.role)}</td>
         <td>${r.calls}</td>
         <td>${r.outbounds}</td>
         <td>${r.meetingsSet}</td>
         <td>${r.noShows}</td>
         <td>${r.followUpsSet}</td>
+        <td>${r.salesCallsTaken || 0}</td>
+        <td>${r.salesCallsClosed || 0}</td>
         <td>${r.salesClosed}</td>
         <td class="amount">${fmtMoney(r.revenue)}</td>
+        <td class="amount">${fmtMoney(r.paymentPlanCash)}</td>
+        <td class="amount">${fmtMoney(r.revenue + (r.paymentPlanCash || 0))}</td>
       </tr>`).join('')
-    : '<tr><td colspan="9" style="color:var(--text-muted);font-style:italic;">No EOD reports yet</td></tr>';
+    : '<tr><td colspan="14" style="color:var(--text-muted);font-style:italic;">No EOD reports yet</td></tr>';
 
   $('#eod-history-table').innerHTML = `<table>
-    <tr><th>Date</th><th>Rep</th><th>Calls</th><th>Outbounds</th><th>Meetings Set</th><th>No Shows</th><th>Follow Ups</th><th>Sales</th><th>Revenue</th></tr>
+    <tr><th>Date</th><th>Rep</th><th>Team</th><th>Calls</th><th>Outbounds</th><th>Meetings Set</th><th>No Shows</th><th>Follow Ups</th><th>Sales Calls Taken</th><th>Sales Calls Closed</th><th>Sales</th><th>New Cash Collected</th><th>Payment Plan Cash</th><th>Total Cash Collected</th></tr>
     ${rows}
   </table>`;
 }
@@ -896,8 +993,9 @@ function renderReportOutput(data) {
         <td>${escapeHtml(c.leadSource || '—')}</td>
         <td>${c.setterName ? escapeHtml(c.setterName) : '—'}</td>
         <td class="amount">${fmtMoney(c.amount)}</td>
+        <td class="amount">${fmtMoney(c.paymentPlanAmount)}</td>
       </tr>`).join('')
-    : '<tr><td colspan="6" style="color:var(--text-muted);font-style:italic;">No closes in this range</td></tr>';
+    : '<tr><td colspan="7" style="color:var(--text-muted);font-style:italic;">No closes in this range</td></tr>';
 
   const sourceRows = data.bySource.length
     ? data.bySource.map((s) => `<tr>
@@ -923,14 +1021,22 @@ function renderReportOutput(data) {
       </div>
       <div class="report-stat">
         <div class="report-stat-num">${fmtMoney(data.totals.revenue)}</div>
-        <div class="report-stat-label">Cash Collected</div>
+        <div class="report-stat-label">New Cash Collected</div>
+      </div>
+      <div class="report-stat">
+        <div class="report-stat-num">${fmtMoney(data.totals.paymentPlanCash)}</div>
+        <div class="report-stat-label">Payment Plan Cash</div>
+      </div>
+      <div class="report-stat">
+        <div class="report-stat-num">${fmtMoney(data.totals.revenue + data.totals.paymentPlanCash)}</div>
+        <div class="report-stat-label">Total Cash Collected</div>
       </div>
     </div>
 
     <h3 class="report-section-title">Closes</h3>
     <div class="data-table">
       <table>
-        <tr><th>Date</th><th>Rep</th><th>Program</th><th>Lead Source</th><th>Setter</th><th>Amount</th></tr>
+        <tr><th>Date</th><th>Rep</th><th>Program</th><th>Lead Source</th><th>Setter</th><th>Amount</th><th>Payment Plan</th></tr>
         ${closeRows}
       </table>
     </div>

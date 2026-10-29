@@ -87,15 +87,18 @@ router.get('/closes', (req, res) => {
 });
 
 router.post('/closes', (req, res) => {
-  const { date, repId, productId, amount, setterId, notes, leadSource } = req.body;
-  if (!date || !repId || amount === undefined) {
-    return res.status(400).json({ error: 'date, repId, and amount are required' });
+  const { date, repId, productId, amount, paymentPlanAmount, setterId, notes, leadSource } = req.body;
+  const amt = Number(amount || 0);
+  const ppAmt = Number(paymentPlanAmount || 0);
+  if (!date || !repId || (amt <= 0 && ppAmt <= 0)) {
+    return res.status(400).json({ error: 'date, repId, and an amount or payment plan amount are required' });
   }
   const close = store.insert('closes', {
     date,
     repId,
     productId: productId || null,
-    amount: Number(amount),
+    amount: amt,
+    paymentPlanAmount: ppAmt,
     setterId: setterId || null,
     notes: notes || '',
     leadSource: leadSource || null,
@@ -163,10 +166,14 @@ router.get('/summary/today', (req, res) => {
   const today = todayStr();
   const closes = metrics.closesInRange(today, today);
   const logs = metrics.setterLogsInRange(today, today);
+  const eodToday = store.all('eodReports').filter((r) => r.date === today);
   res.json({
     date: today,
-    closes: closes.length,
+    closes: closes.filter(metrics.isSale).length,
     revenue: closes.reduce((s, c) => s + Number(c.amount || 0), 0),
+    paymentPlanCash:
+      closes.reduce((s, c) => s + Number(c.paymentPlanAmount || 0), 0) +
+      eodToday.reduce((s, r) => s + Number(r.paymentPlanCash || 0), 0),
     callsMade: logs.reduce((s, l) => s + Number(l.callsMade || 0), 0),
     appointmentsBooked: logs.reduce((s, l) => s + Number(l.appointmentsBooked || 0), 0),
     showUps: logs.reduce((s, l) => s + Number(l.showUps || 0), 0),
@@ -177,10 +184,14 @@ router.get('/summary/today', (req, res) => {
 function dayAggregate(dateStr) {
   const closes = metrics.closesInRange(dateStr, dateStr);
   const logs = metrics.setterLogsInRange(dateStr, dateStr);
+  const eod = store.all('eodReports').filter((r) => r.date === dateStr);
   return {
     date: dateStr,
-    closes: closes.length,
+    closes: closes.filter(metrics.isSale).length,
     revenue: closes.reduce((s, c) => s + Number(c.amount || 0), 0),
+    paymentPlanCash:
+      closes.reduce((s, c) => s + Number(c.paymentPlanAmount || 0), 0) +
+      eod.reduce((s, r) => s + Number(r.paymentPlanCash || 0), 0),
     callsMade: logs.reduce((s, l) => s + Number(l.callsMade || 0), 0),
     appointmentsBooked: logs.reduce((s, l) => s + Number(l.appointmentsBooked || 0), 0),
     showUps: logs.reduce((s, l) => s + Number(l.showUps || 0), 0),
@@ -225,11 +236,12 @@ router.get('/calendar/week', (req, res) => {
     (acc, d) => ({
       closes: acc.closes + d.closes,
       revenue: acc.revenue + d.revenue,
+      paymentPlanCash: acc.paymentPlanCash + d.paymentPlanCash,
       callsMade: acc.callsMade + d.callsMade,
       appointmentsBooked: acc.appointmentsBooked + d.appointmentsBooked,
       showUps: acc.showUps + d.showUps,
     }),
-    { closes: 0, revenue: 0, callsMade: 0, appointmentsBooked: 0, showUps: 0 }
+    { closes: 0, revenue: 0, paymentPlanCash: 0, callsMade: 0, appointmentsBooked: 0, showUps: 0 }
   );
   res.json({ start, end, days, totals });
 });
@@ -271,6 +283,12 @@ router.get('/report', (req, res) => {
     .sort((a, b) => (a.date < b.date ? -1 : 1));
 
   const totalRevenue = closes.reduce((s, c) => s + Number(c.amount || 0), 0);
+  const paymentPlanCash =
+    closes.reduce((s, c) => s + Number(c.paymentPlanAmount || 0), 0) +
+    store
+      .all('eodReports')
+      .filter((r) => inRange(r.date, start, end))
+      .reduce((s, r) => s + Number(r.paymentPlanCash || 0), 0);
 
   const bySource = {};
   closes.forEach((c) => {
@@ -284,7 +302,7 @@ router.get('/report', (req, res) => {
     start,
     end,
     closes,
-    totals: { closes: closes.length, revenue: totalRevenue },
+    totals: { closes: closes.filter(metrics.isSale).length, revenue: totalRevenue, paymentPlanCash },
     bySource: Object.values(bySource).sort((a, b) => b.revenue - a.revenue),
   });
 });
@@ -308,21 +326,31 @@ router.get('/eod-reports', (req, res) => {
 // Sales for that rep/day are pulled live from the Sales log and snapshotted onto
 // the record, so the report stays accurate to what was known at submit time.
 router.post('/eod-reports', (req, res) => {
-  const { date, repId, calls, outbounds, meetingsSet, noShows, followUpsSet, notes } = req.body;
+  const { date, repId, calls, outbounds, meetingsSet, noShows, followUpsSet, salesCallsTaken, salesCallsClosed, paymentPlanCash, notes } = req.body;
   if (!date || !repId) return res.status(400).json({ error: 'date and repId are required' });
 
-  const dayCloses = metrics.closesInRange(date, date).filter((c) => c.repId === repId);
-  const salesClosed = dayCloses.length;
+  const rep = store.all('reps').find((r) => r.id === repId);
+  const role = rep?.role || 'closer';
+
+  // Closers get credit as the closing rep; setters get credit when tagged on someone else's close.
+  const dayCloses = metrics
+    .closesInRange(date, date)
+    .filter((c) => (role === 'setter' ? c.setterId === repId : c.repId === repId));
+  const salesClosed = dayCloses.filter(metrics.isSale).length;
   const revenue = dayCloses.reduce((sum, c) => sum + Number(c.amount || 0), 0);
 
   const payload = {
     date,
     repId,
+    role,
     calls: Number(calls || 0),
     outbounds: Number(outbounds || 0),
     meetingsSet: Number(meetingsSet || 0),
     noShows: Number(noShows || 0),
     followUpsSet: Number(followUpsSet || 0),
+    salesCallsTaken: Number(salesCallsTaken || 0),
+    salesCallsClosed: Number(salesCallsClosed || 0),
+    paymentPlanCash: Number(paymentPlanCash || 0),
     notes: notes || '',
     salesClosed,
     revenue,
@@ -358,10 +386,13 @@ router.get('/eod-reports/team', (req, res) => {
       meetingsSet: acc.meetingsSet + r.meetingsSet,
       noShows: acc.noShows + r.noShows,
       followUpsSet: acc.followUpsSet + r.followUpsSet,
+      salesCallsTaken: acc.salesCallsTaken + (r.salesCallsTaken || 0),
+      salesCallsClosed: acc.salesCallsClosed + (r.salesCallsClosed || 0),
+      paymentPlanCash: acc.paymentPlanCash + (r.paymentPlanCash || 0),
       salesClosed: acc.salesClosed + r.salesClosed,
       revenue: acc.revenue + r.revenue,
     }),
-    { calls: 0, outbounds: 0, meetingsSet: 0, noShows: 0, followUpsSet: 0, salesClosed: 0, revenue: 0 }
+    { calls: 0, outbounds: 0, meetingsSet: 0, noShows: 0, followUpsSet: 0, salesCallsTaken: 0, salesCallsClosed: 0, paymentPlanCash: 0, salesClosed: 0, revenue: 0 }
   );
 
   res.json({ date, rows, totals });
