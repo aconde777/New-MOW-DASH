@@ -60,9 +60,19 @@ function buildEodSummaryHtml(dateStr) {
   </div>`;
 }
 
+// recipientEmail may hold one address or several, comma/semicolon-separated
+// (e.g. "rafa@mow.com, alex@mow.com") — split into a clean array for Resend.
+function parseRecipients(recipientEmail) {
+  return (recipientEmail || '')
+    .split(/[,;]/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
 async function sendEodSummary(dateStr) {
   const settings = store.getSettings();
-  if (!settings.eod?.recipientEmail) {
+  const recipients = parseRecipients(settings.eod?.recipientEmail);
+  if (!recipients.length) {
     throw new Error('No EOD recipient email configured in Team settings.');
   }
   if (!process.env.RESEND_API_KEY) {
@@ -74,7 +84,7 @@ async function sendEodSummary(dateStr) {
   const fromAddress = process.env.RESEND_FROM || 'Man of War Dashboard <onboarding@resend.dev>';
   const { data, error } = await resend.emails.send({
     from: fromAddress,
-    to: settings.eod.recipientEmail,
+    to: recipients,
     subject: `MOW EOD Summary — ${dateStr || todayStr()}`,
     html,
   });
